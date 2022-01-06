@@ -23,7 +23,7 @@ RUN apk update \
     && rm -fr jumpstart-latest
 
 # Build final image
-FROM openjdk:alpine-jre as consumer
+FROM openjdk:alpine as consumer
 
 WORKDIR /app/
 
