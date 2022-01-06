@@ -1,0 +1,22 @@
+version: '3'
+services:
+  redis:
+    restart: always
+    image: redis:alpine
+    entrypoint: redis-server --save "" --appendonly no
+
+  swim-consumer:
+    restart: always
+    image: swim-consumer
+    build: ./swim_consumer/
+    volumes:
+      - $PWD/swim_consumer.conf:/app/swim_consumer.conf:ro
+    depends_on:
+      - redis
+
+  swim-data-processor:
+    restart: always
+    image: swim-data-processor
+    build: ./swim_data_processor/
+    depends_on:
+      - redis
