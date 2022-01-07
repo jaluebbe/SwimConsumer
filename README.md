@@ -11,6 +11,21 @@ Finally start the services by calling:
 docker-compose up
 ```
 
+You may observe that there is still an non-negligible "Expired Message Count" for your subscription in the SWIM portal. In that case, you may increase the number of swim-consumer instances using the following statement instead:
+```
+docker-compose up --scale swim-consumer=2
+```
+
+The services are stopped by calling:
+```
+docker-compose down
+```
+
+If you modify the Python container, you could rebuild it by calling:
+```
+docker-compose build swim-data-processor
+```
+
 ## Optional
 If you don't want to implement your own software to be run in a Docker container, you could modify the redis entry in the docker-compose.yml in the following way:
 ```
