@@ -36,3 +36,17 @@ If you don't want to implement your own software to be run in a Docker container
       - "127.0.0.1:6379:6379"
 ```
 Now you could access the Redis instance from other software running on the same computer.
+
+If you need to filter callsigns, you could provide a list of callsigns which should be ignored by further processing.
+Just modify the entry in the docker-compose.yml in the following way:
+```
+  swim-data-processor:
+    restart: always
+    image: swim-data-processor
+    build: ./swim_data_processor/
+    volumes:
+      - $PWD/my_callsign_filter.txt:/app/callsign_filter.txt:ro
+    depends_on:
+      - redis
+```
+The text file should contain one callsign per line.
