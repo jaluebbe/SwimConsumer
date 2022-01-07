@@ -6,24 +6,36 @@ import logging
 redis_connection = redis.Redis("redis", decode_responses=True)
 
 
-def process_fdps_message(flights):
-    print(f"### FDPS message with {len(flights)} items received ###")
+def process_fdps_message(flights, show_raw_data=False):
+    print(f"##### FDPS message with {len(flights)} items received #####")
     for _flight in flights:
         if isinstance(_flight, str):
             logging.debug(f"skipping '{_flight}'.")
             continue
         flight = _flight["flight"]
         callsign = flight["flightIdentification"]["aircraftIdentification"]
-        print(f"############### {callsign} ###############")
-        print(json.dumps(flight, indent=2))
+        if flight.get("departure") is None:
+            origin = None
+        else:
+            origin = flight["departure"].get("departurePoint")
+        if flight.get("arrival") is None:
+            destination = None
+        else:
+            destination = flight["arrival"].get("arrivalPoint")
+        print(f"### {callsign} {origin}-{destination} ###")
+        if show_raw_data:
+            print(json.dumps(flight, indent=2))
 
 
-def process_tfms_message(flights):
-    print(f"### FDPS message with {len(flights)} items received ###")
+def process_tfms_message(flights, show_raw_data=False):
+    print(f"##### TFMS message with {len(flights)} items received #####")
     for flight in flights:
         callsign = flight["acid"]
-        print(f"############### {callsign} ###############")
-        print(json.dumps(flight, indent=2))
+        origin = flight.get("depArpt")
+        destination = flight.get("arrArpt")
+        print(f"### {callsign} {origin}-{destination} ###")
+        if show_raw_data:
+            print(json.dumps(flight, indent=2))
 
 
 def process_message(message):
