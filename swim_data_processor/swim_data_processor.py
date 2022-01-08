@@ -11,6 +11,8 @@ if os.path.isfile("callsign_filter.txt"):
         callsign_filter = set(f.read().split())
 else:
     callsign_filter = set()
+with open("airport_iata_to_icao.json") as f:
+    airport_iata_to_icao = json.load(f)
 
 
 def process_fdps_message(flights, show_raw_data=False):
@@ -39,13 +41,32 @@ def process_fdps_message(flights, show_raw_data=False):
 
 def process_arrival_information(flight):
     _arrival_info = flight["fdm:arrivalInformation"]
-    _time_data = _arrival_info["nxcm:ncsmFlightTimeData"]
+    _time_data = _arrival_info.get("nxcm:ncsmFlightTimeData")
+    if _time_data is None:
+        logging.warning(f"time data missing for: {flight}")
+        return
     igtd = _arrival_info["nxcm:qualifiedAircraftId"].get("nxce:igtd")
     destination = flight.get("arrArpt")
     origin = flight.get("depArpt")
     if None in (origin, destination):
-        logging.warning(f"origin or destination missing for: {flight}")
+        logging.info(f"origin or destination missing for: {flight}")
         return
+    if len(origin) == 4:
+        pass
+    elif origin not in airport_iata_to_icao:
+        logging.warning(f"'{origin}' is an unknown IATA airport identifier.")
+        return
+    else:
+        origin = airport_iata_to_icao[origin]
+    if len(destination) == 4:
+        pass
+    elif destination not in airport_iata_to_icao:
+        logging.warning(
+            f"'{destination}' is an unknown IATA airport identifier."
+        )
+        return
+    else:
+        destination = airport_iata_to_icao[destination]
     message = {
         "callsign": flight["acid"],
         "airline": flight["airline"],

@@ -11,4 +11,6 @@ RUN pip install --upgrade pip && pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
+RUN python3 prepare_airport_list.py
+
 CMD [ "python", "./swim_data_processor.py" ]
