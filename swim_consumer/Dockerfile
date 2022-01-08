@@ -25,7 +25,7 @@ RUN apk update \
 # Build final image
 FROM openjdk:alpine as consumer
 
-WORKDIR /app/
+WORKDIR /app
 
 COPY --from=builder  /build/jumpstart-jar-with-dependencies.jar .
 
