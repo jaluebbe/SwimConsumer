@@ -2,8 +2,9 @@ import redis
 import json
 import logging
 import os
+import time
 
-logging.basicConfig(level=logging.WARNING)
+logging.basicConfig(format="%(levelname)s:%(message)s", level=logging.WARNING)
 redis_connection = redis.Redis("redis", decode_responses=True)
 if os.path.isfile("callsign_filter.txt"):
     with open("callsign_filter.txt") as f:
@@ -13,7 +14,7 @@ else:
 
 
 def process_fdps_message(flights, show_raw_data=False):
-    print(f"##### FDPS message with {len(flights)} items received #####")
+    logging.info(f"### FDPS message with {len(flights)} items received ###")
     if isinstance(flights, dict):
         logging.debug(f"putting single flight into a list: {flights}")
         flights = [flights]
@@ -31,13 +32,35 @@ def process_fdps_message(flights, show_raw_data=False):
             destination = None
         else:
             destination = flight["arrival"].get("arrivalPoint")
-        print(f"### {callsign} {origin}-{destination} ###")
+        logging.info(f"{callsign} {origin}-{destination}")
         if show_raw_data:
             print(json.dumps(flight, indent=2))
 
 
+def process_arrival_information(flight):
+    _arrival_info = flight["fdm:arrivalInformation"]
+    _time_data = _arrival_info["nxcm:ncsmFlightTimeData"]
+    igtd = _arrival_info["nxcm:qualifiedAircraftId"].get("nxce:igtd")
+    destination = flight.get("arrArpt")
+    origin = flight.get("depArpt")
+    if None in (origin, destination):
+        logging.warning(f"origin or destination missing for: {flight}")
+        return
+    message = {
+        "callsign": flight["acid"],
+        "airline": flight["airline"],
+        "igtd": igtd,
+        "etd": _time_data["nxcm:etd"],
+        "eta": _time_data["nxcm:eta"],
+        "origin": origin,
+        "destination": destination,
+    }
+    logging.info(message)
+    redis_connection.publish("SWIM-ARRIVALS", json.dumps(message))
+
+
 def process_tfms_message(flights, show_raw_data=False):
-    print(f"##### TFMS message with {len(flights)} items received #####")
+    logging.debug(f"### TFMS message with {len(flights)} items received ###")
     if isinstance(flights, dict):
         logging.debug(f"putting single flight into a list: {flights}")
         flights = [flights]
@@ -46,9 +69,12 @@ def process_tfms_message(flights, show_raw_data=False):
         if callsign in callsign_filter:
             logging.debug(f"filtering '{callsign}'.")
             continue
+        msg_type = flight["msgType"]
         origin = flight.get("depArpt")
         destination = flight.get("arrArpt")
-        print(f"### {callsign} {origin}-{destination} ###")
+        logging.debug(f"{callsign} {origin}-{destination} ({msg_type})")
+        if msg_type == "arrivalInformation":
+            process_arrival_information(flight)
         if show_raw_data:
             print(json.dumps(flight, indent=2))
 
@@ -72,7 +98,6 @@ while True:
             if not message["type"] == "message":
                 continue
             process_message(json.loads(message["data"]))
-    except IOError:
-        logging.warning("reconnecting to Redis")
-    except Exception:
-        logging.exception("error occured")
+    except redis.exceptions.ConnectionError:
+        logging.exception("reconnecting to Redis in 5s.")
+        time.sleep(5)
