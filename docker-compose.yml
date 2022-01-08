@@ -20,3 +20,12 @@ services:
     build: ./swim_data_processor/
     depends_on:
       - redis
+
+  swim-arrival-processor:
+    restart: always
+    image: swim-arrival-processor
+    build: ./swim_arrival_processor/
+    volumes:
+      - $PWD/mysql_params.json:/app/mysql_params.json:ro
+    depends_on:
+      - redis
