@@ -8,11 +8,6 @@ from collections import Counter
 
 CSV_URL = "https://ourairports.com/data/airports.csv"
 
-accepted_icaos = []
-ignored_types = []
-# possible types: 'balloonport', 'heliport', 'seaplane_base', 'small_airport',
-# 'medium_airport', 'large_airport', ''
-
 icao_pattern = re.compile("^[A-Z]{4}$")
 
 with requests.Session() as s:
@@ -31,13 +26,9 @@ duplicate_icaos = set(+icao_count)
 
 airport_iata_to_icao = {}
 for row in airports:
-    if row["type"] in ignored_types:
-        continue
     if not len(row["iata_code"]) == 3:
         continue
     if row["type"] == "closed":
-        continue
-    if len(row["iata_code"]) != 3 and not row["gps_code"] in accepted_icaos:
         continue
     if row["gps_code"] in duplicate_icaos and row["ident"] != row["gps_code"]:
         print(
@@ -47,7 +38,25 @@ for row in airports:
         continue
     airport_iata_to_icao[row["iata_code"]] = row["gps_code"]
 
+local_code_to_icao = {}
+for row in airports:
+    if len(row["iata_code"]) == 3:
+        continue
+    if len(row["local_code"]) != 3:
+        continue
+    if row["iso_country"] != "US":
+        continue
+    if row["type"] == "closed":
+        continue
+    local_code_to_icao[row["local_code"]] = row["gps_code"]
+
+
 file_name = "airport_iata_to_icao.json"
 print(f"writing {len(airport_iata_to_icao)} airports to {file_name}.")
 with open(file_name, "w") as f:
     json.dump(airport_iata_to_icao, f)
+
+file_name = "local_code_to_icao.json"
+print(f"writing {len(local_code_to_icao)} airports to {file_name}.")
+with open(file_name, "w") as f:
+    json.dump(local_code_to_icao, f)

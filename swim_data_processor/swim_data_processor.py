@@ -13,6 +13,8 @@ else:
     callsign_filter = set()
 with open("airport_iata_to_icao.json") as f:
     airport_iata_to_icao = json.load(f)
+with open("local_code_to_icao.json") as f:
+    local_code_to_icao = json.load(f)
 
 
 def process_fdps_message(flights, show_raw_data=False):
@@ -51,22 +53,24 @@ def process_arrival_information(flight):
     if None in (origin, destination):
         logging.info(f"origin or destination missing for: {flight}")
         return
-    if len(origin) == 4:
-        pass
-    elif origin not in airport_iata_to_icao:
-        logging.warning(f"'{origin}' is an unknown IATA airport identifier.")
-        return
-    else:
-        origin = airport_iata_to_icao[origin]
-    if len(destination) == 4:
-        pass
-    elif destination not in airport_iata_to_icao:
-        logging.warning(
-            f"'{destination}' is an unknown IATA airport identifier."
-        )
-        return
-    else:
-        destination = airport_iata_to_icao[destination]
+    if len(origin) != 4:
+        if origin in airport_iata_to_icao:
+            origin = airport_iata_to_icao[origin]
+        elif origin in local_code_to_icao:
+            origin = local_code_to_icao[origin]
+        else:
+            logging.warning(f"'{origin}' is an unknown airport identifier.")
+            return
+    if len(destination) != 4:
+        if destination in airport_iata_to_icao:
+            destination = airport_iata_to_icao[destination]
+        elif destination in local_code_to_icao:
+            destination = local_code_to_icao[destination]
+        else:
+            logging.warning(
+                f"'{destination}' is an unknown airport identifier."
+            )
+            return
     message = {
         "callsign": flight["acid"],
         "airline": flight["airline"],
