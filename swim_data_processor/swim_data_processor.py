@@ -3,6 +3,7 @@ import json
 import logging
 import os
 import time
+import re
 
 logging.basicConfig(format="%(levelname)s:%(message)s", level=logging.WARNING)
 redis_connection = redis.Redis("redis", decode_responses=True)
@@ -15,6 +16,7 @@ with open("airport_iata_to_icao.json") as f:
     airport_iata_to_icao = json.load(f)
 with open("local_code_to_icao.json") as f:
     local_code_to_icao = json.load(f)
+icao_pattern = re.compile("^[A-Z]{4}$")
 
 
 def process_fdps_message(flights, show_raw_data=False):
@@ -61,6 +63,9 @@ def process_arrival_information(flight):
         else:
             logging.warning(f"'{origin}' is an unknown airport identifier.")
             return
+    elif icao_pattern.match(origin) is None:
+        logging.warning(f"'{origin}' is not an ICAO airport identifier.")
+        return
     if len(destination) != 4:
         if destination in airport_iata_to_icao:
             destination = airport_iata_to_icao[destination]
@@ -71,6 +76,9 @@ def process_arrival_information(flight):
                 f"'{destination}' is an unknown airport identifier."
             )
             return
+    elif icao_pattern.match(destination) is None:
+        logging.warning(f"'{destination}' is not an ICAO airport identifier.")
+        return
     message = {
         "callsign": flight["acid"],
         "airline": flight["airline"],
