@@ -101,8 +101,8 @@ def process_flight_modify_information(flight):
         "callsign": flight["acid"],
         "airline": flight["airline"],
         "igtd": igtd,
-        "etd": _time_data["nxcm:etd"],
-        "eta": _time_data["nxcm:eta"],
+        "etd": _airline_data["nxcm:etd"],
+        "eta": _airline_data["nxcm:eta"],
         "origin": origin,
         "destination": destination,
     }
