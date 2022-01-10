@@ -11,7 +11,7 @@ flight_db = FlightDatabase()
 
 
 def process_message(message):
-    if message["airline"] == "XXX":
+    if message["airline"] in ("XXX", "DCM", "FWR", "FFL", "XAA"):
         return
 
     # Split callsign into operator and suffix and remove leading zeros.
@@ -40,6 +40,7 @@ def process_message(message):
     logging.debug(json.dumps(historic_flight, indent=2))
     duration = (arrival - departure) / 60
     logging.info(f"{callsign} {origin}-{destination} {duration:.1f} minutes")
+    redis_connection.set("historic_flight_processed", time.time())
     flight_db.set_historic_flight(historic_flight)
 
 
