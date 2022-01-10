@@ -57,6 +57,7 @@ def check_airport(airport):
     elif icao_pattern.match(airport) is None:
         logging.warning(f"'{airport}' is not an ICAO airport identifier.")
         return
+    return airport
 
 
 def process_arrival_information(flight):
