@@ -43,6 +43,22 @@ def process_fdps_message(flights, show_raw_data=False):
             print(json.dumps(flight, indent=2))
 
 
+def check_airport(airport):
+    if airport is None:
+        return
+    if len(airport) != 4:
+        if airport in airport_iata_to_icao:
+            airport = airport_iata_to_icao[airport]
+        elif airport in local_code_to_icao:
+            airport = local_code_to_icao[airport]
+        else:
+            logging.warning(f"'{airport}' is an unknown airport identifier.")
+            return
+    elif icao_pattern.match(airport) is None:
+        logging.warning(f"'{airport}' is not an ICAO airport identifier.")
+        return
+
+
 def process_arrival_information(flight):
     _arrival_info = flight["fdm:arrivalInformation"]
     _time_data = _arrival_info.get("nxcm:ncsmFlightTimeData")
@@ -50,34 +66,35 @@ def process_arrival_information(flight):
         logging.warning(f"time data missing for: {flight}")
         return
     igtd = _arrival_info["nxcm:qualifiedAircraftId"].get("nxce:igtd")
-    destination = flight.get("arrArpt")
-    origin = flight.get("depArpt")
+    destination = check_airport(flight.get("arrArpt"))
+    origin = check_airport(flight.get("depArpt"))
     if None in (origin, destination):
         logging.info(f"origin or destination missing for: {flight}")
         return
-    if len(origin) != 4:
-        if origin in airport_iata_to_icao:
-            origin = airport_iata_to_icao[origin]
-        elif origin in local_code_to_icao:
-            origin = local_code_to_icao[origin]
-        else:
-            logging.warning(f"'{origin}' is an unknown airport identifier.")
-            return
-    elif icao_pattern.match(origin) is None:
-        logging.warning(f"'{origin}' is not an ICAO airport identifier.")
+    message = {
+        "callsign": flight["acid"],
+        "airline": flight["airline"],
+        "igtd": igtd,
+        "etd": _time_data["nxcm:etd"],
+        "eta": _time_data["nxcm:eta"],
+        "origin": origin,
+        "destination": destination,
+    }
+    logging.info(message)
+    redis_connection.publish("SWIM-ARRIVALS", json.dumps(message))
+
+
+def process_flight_modify_information(flight):
+    _modify_info = flight["fdm:ncsmFlightModify"]
+    _airline_data = _modify_info["nxcm:airlineData"]
+    status = _airline_data["nxcm:flightStatusAndSpec"]["nxcm:flightStatus"]
+    if status != "COMPLETED":
         return
-    if len(destination) != 4:
-        if destination in airport_iata_to_icao:
-            destination = airport_iata_to_icao[destination]
-        elif destination in local_code_to_icao:
-            destination = local_code_to_icao[destination]
-        else:
-            logging.warning(
-                f"'{destination}' is an unknown airport identifier."
-            )
-            return
-    elif icao_pattern.match(destination) is None:
-        logging.warning(f"'{destination}' is not an ICAO airport identifier.")
+    igtd = _modify_info["nxcm:qualifiedAircraftId"].get("nxce:igtd")
+    destination = check_airport(flight.get("arrArpt"))
+    origin = check_airport(flight.get("depArpt"))
+    if None in (origin, destination):
+        logging.info(f"origin or destination missing for: {flight}")
         return
     message = {
         "callsign": flight["acid"],
@@ -93,6 +110,7 @@ def process_arrival_information(flight):
 
 
 def process_tfms_message(flights, show_raw_data=False):
+    redis_connection.set("tfms_received", time.time())
     logging.debug(f"### TFMS message with {len(flights)} items received ###")
     if isinstance(flights, dict):
         logging.debug(f"putting single flight into a list: {flights}")
@@ -108,6 +126,8 @@ def process_tfms_message(flights, show_raw_data=False):
         logging.debug(f"{callsign} {origin}-{destination} ({msg_type})")
         if msg_type == "arrivalInformation":
             process_arrival_information(flight)
+        elif msg_type == "FlightModify":
+            process_flight_modify_information(flight)
         if show_raw_data:
             print(json.dumps(flight, indent=2))
 
