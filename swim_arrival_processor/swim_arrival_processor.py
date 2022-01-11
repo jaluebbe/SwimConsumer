@@ -23,6 +23,14 @@ def process_message(message):
         igtd = int(arrow.get(message["igtd"]).timestamp())
     else:
         igtd = None
+    if message.get("gate_departure") is not None:
+        gate_departure = int(arrow.get(message["gate_departure"]).timestamp())
+    else:
+        gate_departure = None
+    if message.get("gate_arrival") is not None:
+        gate_arrival = int(arrow.get(message["gate_arrival"]).timestamp())
+    else:
+        gate_arrival = None
     departure = int(arrow.get(message["etd"]["timeValue"]).timestamp())
     arrival = int(arrow.get(message["eta"]["timeValue"]).timestamp())
     origin = message["origin"]
@@ -30,12 +38,14 @@ def process_message(message):
     historic_flight = {
         "callsign": callsign,
         "igtd": igtd,
+        "gate_departure": gate_departure,
         "origin": origin,
         "departure": departure,
         "departure_actual": message["etd"]["etdType"] == "ACTUAL",
         "destination": destination,
         "arrival": arrival,
         "arrival_actual": message["eta"]["etaType"] == "ACTUAL",
+        "gate_arrival": gate_arrival,
     }
     logging.debug(json.dumps(historic_flight, indent=2))
     duration = (arrival - departure) / 60

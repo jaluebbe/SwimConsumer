@@ -43,11 +43,16 @@ class FlightDatabase:
                 return self.submit_data(sql_query, params, retry=True)
 
     def set_historic_flight(self, historic_flight):
+        if historic_flight["gate_departure"] is None:
+            method = "INSERT IGNORE"
+        else:
+            method = "REPLACE"
         sql_query = (
-            "REPLACE INTO SWIMFlightHistory (Callsign, OriginIcao, IGTD, "
+            f"{method} INTO SWIMFlightHistory (Callsign, OriginIcao, IGTD, "
             "Departure, DepartureActual, DestinationIcao, Arrival, "
-            "ArrivalActual) VALUES (%(callsign)s, %(origin)s, %(igtd)s, "
-            "%(departure)s, %(departure_actual)s, %(destination)s, "
-            "%(arrival)s, %(arrival_actual)s)"
+            "ArrivalActual, GateDeparture, GateArrival) VALUES (%(callsign)s, "
+            "%(origin)s, %(igtd)s, %(departure)s, %(departure_actual)s, "
+            "%(destination)s, %(arrival)s, %(arrival_actual)s, "
+            "%(gate_departure)s, %(gate_arrival)s)"
         )
         return self.submit_data(sql_query, params=historic_flight)

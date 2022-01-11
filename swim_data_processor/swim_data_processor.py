@@ -88,10 +88,13 @@ def process_arrival_information(flight):
 def process_flight_modify_information(flight):
     _modify_info = flight["fdm:ncsmFlightModify"]
     _airline_data = _modify_info["nxcm:airlineData"]
+    _time_data = _airline_data["nxcm:flightTimeData"]
     status = _airline_data["nxcm:flightStatusAndSpec"]["nxcm:flightStatus"]
     if status != "COMPLETED":
         return
     igtd = _modify_info["nxcm:qualifiedAircraftId"].get("nxce:igtd")
+    gate_departure = _time_data.get("gateDeparture")
+    gate_arrival = _time_data.get("gateArrival")
     destination = check_airport(flight.get("arrArpt"))
     origin = check_airport(flight.get("depArpt"))
     if None in (origin, destination):
@@ -105,6 +108,8 @@ def process_flight_modify_information(flight):
         "eta": _airline_data["nxcm:eta"],
         "origin": origin,
         "destination": destination,
+        "gate_departure": gate_departure,
+        "gate_arrival": gate_arrival,
     }
     logging.info(message)
     redis_connection.publish("SWIM-ARRIVALS", json.dumps(message))
