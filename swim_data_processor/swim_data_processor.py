@@ -20,6 +20,7 @@ icao_pattern = re.compile("^[A-Z]{4}$")
 
 
 def process_fdps_message(flights, show_raw_data=False):
+    redis_connection.set("fdps_received", time.time())
     logging.info(f"### FDPS message with {len(flights)} items received ###")
     if isinstance(flights, dict):
         logging.debug(f"putting single flight into a list: {flights}")
