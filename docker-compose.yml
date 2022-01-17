@@ -29,3 +29,12 @@ services:
       - $PWD/mysql_params.json:/app/mysql_params.json:ro
     depends_on:
       - redis
+
+  swim-consumer-watchdog:
+    restart: always
+    image: swim-consumer-watchdog
+    build: ./swim_consumer_watchdog/
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      - redis
