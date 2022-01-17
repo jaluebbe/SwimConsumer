@@ -18,7 +18,8 @@ def process_message(message):
     operator_icao = message["callsign"][:3]
     suffix = message["callsign"][3:].lstrip("0")
     callsign = "{}{}".format(operator_icao, suffix)
-
+    if not message["etd"]["etdType"] == "ACTUAL":
+        return
     departure = int(arrow.get(message["etd"]["timeValue"]).timestamp())
     arrival = int(arrow.get(message["eta"]["timeValue"]).timestamp())
     duration = arrival - departure
