@@ -44,4 +44,4 @@ while True:
                 _container.restart()
         old_tx_packets[_container.name] = _tx_packets
     _duration = time.time() - _start
-    time.sleep(max(0, interval - _duration))
+    time.sleep(max(0, min(interval, interval - _duration)))
