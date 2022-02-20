@@ -11,7 +11,32 @@ client = docker.from_env()
 interval = 60
 old_tx_packets = {}
 
+
+def check_tfms_received():
+    now = time.time()
+    tfms_received = redis_connection.get("tfms_received")
+    if tfms_received is None:
+        logging.warning(
+            "no TFMS messages received or swim-data-processor offline."
+        )
+        return False
+    else:
+        age = now - float(tfms_received)
+        if age > 600:
+            logging.warning(
+                f"TFMS data outdated ({age:.1f}s)->"
+                "swim-data-processor or swim-consumer offline?"
+            )
+            return False
+        else:
+            logging.debug(
+                f"swim-data-processor OK (last message {age:.1f}s ago)"
+            )
+            return True
+
+
 while True:
+    tfms_received_ok = check_tfms_received()
     _start = time.time()
     swim_consumers = [
         _c
@@ -31,7 +56,10 @@ while True:
                 f"{_container.name} {_container.status}, {_age:.0f}s up, "
                 f"{_new_tx_packets} new tx_packets"
             )
-            if _age > 120 and _tx_packets == old_tx_packets[_container.name]:
+            if _age > 120 and (
+                _tx_packets == old_tx_packets[_container.name]
+                or not tfms_received_ok
+            ):
                 logging.warning(
                     f"restarting {_container.name} after {_age:.0f}s "
                     f"({_start:.0f})."
@@ -43,5 +71,6 @@ while True:
                 )
                 _container.restart()
         old_tx_packets[_container.name] = _tx_packets
+
     _duration = time.time() - _start
     time.sleep(max(0, min(interval, interval - _duration)))
