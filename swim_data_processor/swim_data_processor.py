@@ -47,7 +47,7 @@ def process_fdps_message(flights, show_raw_data=False):
 def check_airport(airport):
     if airport is None:
         return
-    if len(airport) != 4:
+    if isinstance(airport, int) or len(airport) != 4:
         if airport in airport_iata_to_icao:
             airport = airport_iata_to_icao[airport]
         elif airport in local_code_to_icao:
