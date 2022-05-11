@@ -5,7 +5,7 @@ import time
 import arrow
 from flight_database import FlightDatabase
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.WARNING)
 redis_connection = redis.Redis("redis", decode_responses=True)
 flight_db = FlightDatabase()
 
