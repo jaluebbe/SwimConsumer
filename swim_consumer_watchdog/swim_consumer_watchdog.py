@@ -35,6 +35,31 @@ def check_tfms_received():
             return True
 
 
+def check_historic_flight_processed():
+    now = time.time()
+    historic_flight_processed = redis_connection.get(
+        "historic_flight_processed"
+    )
+    if historic_flight_processed is None:
+        logging.warning(
+            "no arrivals received or swim-arrival-processor offline."
+        )
+        return False
+    else:
+        age = now - float(historic_flight_processed)
+        if age > 800:
+            logging.warning(
+                f"arrival data outdated ({age:.1f}s)->"
+                "swim-arrival-processor offline?"
+            )
+            return False
+        else:
+            logging.debug(
+                f"swim-arrival-processor OK (last message {age:.1f}s ago)"
+            )
+            return True
+
+
 while True:
     tfms_received_ok = check_tfms_received()
     _start = time.time()
@@ -71,6 +96,29 @@ while True:
                 )
                 _container.restart()
         old_tx_packets[_container.name] = _tx_packets
+    flight_processing_ok = check_historic_flight_processed()
+    swim_arrival_processors = [
+        _c
+        for _c in client.containers.list()
+        if _c.labels.get("com.docker.compose.service")
+        == "swim-arrival-processor"
+    ]
+    for _container in swim_arrival_processors:
+        _startup = parser.parse(
+            _container.attrs["State"]["StartedAt"]
+        ).timestamp()
+        _age = time.time() - _startup
+        if _age > 300 and not flight_processing_ok:
+            logging.warning(
+                f"restarting {_container.name} after {_age:.0f}s "
+                f"({_start:.0f})."
+            )
+            redis_connection.rpush(
+                "docker_watchdog",
+                f"restarting {_container.name} after {_age:.0f}s "
+                f"({_start:.0f}).",
+            )
+            _container.restart()
 
     _duration = time.time() - _start
     time.sleep(max(0, min(interval, interval - _duration)))
