@@ -11,5 +11,6 @@ CREATE TABLE IF NOT EXISTS `SWIMFlightHistory` (
   `GateArrival` int(11) DEFAULT NULL,
   PRIMARY KEY (`Departure`,`Callsign`),
   KEY `idx_callsign` (`Callsign`),
-  KEY `idx_departure` (`Departure`)
+  KEY `idx_departure` (`Departure`),
+  KEY `idx_arrival` (`Arrival`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
