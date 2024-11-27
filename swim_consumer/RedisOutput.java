@@ -25,7 +25,7 @@ public class RedisOutput extends Output {
      * @param message the incoming message
      */
     @Override
-    public void output(String message) {
+    public void output(String message, String header) {
         try {
             redis_connection.call("PUBLISH", "SWIM", this.convert(message));
         }
