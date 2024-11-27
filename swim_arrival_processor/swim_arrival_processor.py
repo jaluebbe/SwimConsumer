@@ -11,7 +11,17 @@ flight_db = FlightDatabase()
 
 
 def process_message(message):
-    if message["airline"] in ("XXX", "DCM", "FWR", "FFL", "XAA"):
+    # Some operator ICAOs do not represent scheduled airline flights:
+    if message["airline"] in (
+        "XXX",
+        "DCM",
+        "FWR",
+        "FFL",
+        "XAA",
+        "EJA",
+        "NJE",
+        "NEJ",
+    ):
         return
 
     # Split callsign into operator and suffix and remove leading zeros.

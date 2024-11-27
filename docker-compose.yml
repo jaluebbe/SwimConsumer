@@ -1,9 +1,41 @@
-version: '3'
 services:
+
+  traefik:
+    restart: always
+    image: "traefik:v3.2"
+    container_name: "traefik"
+    command:
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+      - "--entryPoints.websecure.address=:443"
+      - "--certificatesresolvers.myresolver.acme.tlschallenge=true"
+      - "--certificatesresolvers.myresolver.acme.email=${MY_EMAIL}"
+      - "--certificatesresolvers.myresolver.acme.storage=/letsencrypt/acme.json"
+    labels:
+      # global redirect to https
+      - "traefik.http.routers.http-catchall.rule=hostregexp(`{host:.+}`)"
+      - "traefik.http.routers.http-catchall.entrypoints=web"
+      - "traefik.http.routers.http-catchall.middlewares=redirect-to-https"
+      # middleware redirect
+      - "traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https"
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - "./letsencrypt:/letsencrypt"
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+
   redis:
     restart: always
     image: redis:alpine
     entrypoint: redis-server --save "" --appendonly no
+    # publishes Redis port on the host. May be modified or disabled if another
+    # Redis instance is already running.
+    ports:
+      - "127.0.0.1:6379:6379"
+    labels:
+      - "traefik.enable=false"
 
   swim-consumer:
     restart: always
@@ -13,6 +45,8 @@ services:
       - $PWD/swim_consumer.conf:/app/swim_consumer.conf:ro
     depends_on:
       - redis
+    labels:
+      - "traefik.enable=false"
 
   swim-data-processor:
     restart: always
@@ -20,15 +54,19 @@ services:
     build: ./swim_data_processor/
     depends_on:
       - redis
+    labels:
+      - "traefik.enable=false"
 
   swim-arrival-processor:
     restart: always
     image: swim-arrival-processor
     build: ./swim_arrival_processor/
     volumes:
-      - $PWD/mysql_params.json:/app/mysql_params.json:ro
+      - $PWD/swim_flight_history.sqb:/app/swim_flight_history.sqb:rw
     depends_on:
       - redis
+    labels:
+      - "traefik.enable=false"
 
   swim-consumer-watchdog:
     restart: always
@@ -38,3 +76,18 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
     depends_on:
       - redis
+    labels:
+      - "traefik.enable=false"
+
+  swim-consumer-api:
+    restart: always
+    image: swim-consumer-api
+    build: ./swim_consumer_api/
+    volumes:
+      - $PWD/swim_flight_history.sqb:/code/swim_flight_history.sqb:ro
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.swim-consumer-api.rule=Host(`swim-consumer.${MY_DOMAIN}`)"
+      - "traefik.http.routers.swim-consumer-api.entrypoints=websecure"
+      - "traefik.http.routers.swim-consumer-api.tls.certresolver=myresolver"
+      - "traefik.http.services.swim-consumer-api.loadbalancer.server.port=80"

@@ -1,15 +1,11 @@
-import mysql.connector
-import json
+import sqlite3
 import logging
-
-with open("mysql_params.json") as f:
-    mysql_params = json.load(f)
-
 
 class FlightDatabase:
     logger = logging.getLogger(__name__)
 
-    def __init__(self):
+    def __init__(self, db_file="swim_flight_history.sqb"):
+        self.db_file = db_file
         self._connect()
 
     def _reconnect(self):
@@ -22,7 +18,8 @@ class FlightDatabase:
 
     def _connect(self):
         try:
-            self._connection = mysql.connector.connect(**mysql_params)
+            self._connection = sqlite3.connect(self.db_file)
+            self._connection.row_factory = sqlite3.Row
         except IOError:
             self.logger.exception("FlightDatabase._connect()")
             self._connection = None
@@ -39,20 +36,27 @@ class FlightDatabase:
         except (IOError, Exception):
             self.logger.exception("FlightDatabase.submit_data()")
             self._reconnect()
-            if retry == False:
+            if not retry:
                 return self.submit_data(sql_query, params, retry=True)
 
     def set_historic_flight(self, historic_flight):
         if historic_flight["gate_departure"] is None:
-            method = "INSERT IGNORE"
+            # SQLite does not support INSERT IGNORE directly, use a workaround
+            sql_query = (
+                "INSERT OR IGNORE INTO SWIMFlightHistory (Callsign, OriginIcao, IGTD, "
+                "Departure, DepartureActual, DestinationIcao, Arrival, "
+                "ArrivalActual, GateDeparture, GateArrival) VALUES (:callsign, "
+                ":origin, :igtd, :departure, :departure_actual, "
+                ":destination, :arrival, :arrival_actual, "
+                ":gate_departure, :gate_arrival)"
+            )
         else:
-            method = "REPLACE"
-        sql_query = (
-            f"{method} INTO SWIMFlightHistory (Callsign, OriginIcao, IGTD, "
-            "Departure, DepartureActual, DestinationIcao, Arrival, "
-            "ArrivalActual, GateDeparture, GateArrival) VALUES (%(callsign)s, "
-            "%(origin)s, %(igtd)s, %(departure)s, %(departure_actual)s, "
-            "%(destination)s, %(arrival)s, %(arrival_actual)s, "
-            "%(gate_departure)s, %(gate_arrival)s)"
-        )
+            sql_query = (
+                "REPLACE INTO SWIMFlightHistory (Callsign, OriginIcao, IGTD, "
+                "Departure, DepartureActual, DestinationIcao, Arrival, "
+                "ArrivalActual, GateDeparture, GateArrival) VALUES (:callsign, "
+                ":origin, :igtd, :departure, :departure_actual, "
+                ":destination, :arrival, :arrival_actual, "
+                ":gate_departure, :gate_arrival)"
+            )
         return self.submit_data(sql_query, params=historic_flight)
