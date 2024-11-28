@@ -1,9 +1,17 @@
-from fastapi import FastAPI, Query, HTTPException
+from fastapi import FastAPI, Query, HTTPException, Depends
+import arrow
 import sqlite3
 
 app = FastAPI(openapi_prefix="", title="SwimConsumer API", description="")
 
 SWIM_DB_FILE = "swim_flight_history.sqb"
+
+
+def parse_datetime(value: str):
+    try:
+        return int(value)
+    except ValueError:
+        return int(arrow.get(value).timestamp())
 
 
 @app.get("/api/swim_arrival_status")
@@ -25,9 +33,24 @@ def get_swim_consumer_status():
 
 @app.get("/api/swim_flight_history")
 def get_swim_flight_history(
-    begin: int, end: int, show_datetime: bool = Query(default=False)
+    begin: str = Query(
+        ..., description="Start time in epoch or datetime format"
+    ),
+    end: str = Query(
+        None,
+        description=(
+            "End time in epoch or datetime format "
+            "(defaults to 1 hour after begin)"
+        ),
+    ),
+    show_datetime: bool = Query(default=False),
 ):
-    if begin > end or end - begin > 3600 * 24 * 7:
+    begin_epoch = parse_datetime(begin)
+    if end is None:
+        end_epoch = begin_epoch + 3600
+    else:
+        end_epoch = parse_datetime(end)
+    if begin_epoch > end_epoch or end_epoch - begin_epoch > 3600 * 24 * 7:
         raise HTTPException(status_code=404, detail="invalid time range")
 
     if show_datetime:
@@ -40,14 +63,14 @@ def get_swim_flight_history(
             datetime(Arrival, 'unixepoch') AS Arrival,
             ArrivalActual, datetime(GateArrival, 'unixepoch') AS GateArrival
             FROM SWIMFlightHistory
-            WHERE Departure BETWEEN {begin} AND {end};"""
+            WHERE Departure BETWEEN {begin_epoch} AND {end_epoch};"""
     else:
         sql_query = f"""
             SELECT Callsign, OriginIcao AS Origin, IGTD, GateDeparture,
             Departure, DepartureActual, DestinationIcao AS Destination,
             Arrival, ArrivalActual, GateArrival
             FROM SWIMFlightHistory
-            WHERE Departure BETWEEN {begin} AND {end};"""
+            WHERE Departure BETWEEN {begin_epoch} AND {end_epoch};"""
     with sqlite3.connect(SWIM_DB_FILE) as db_connection:
         db_connection.row_factory = sqlite3.Row
         _cursor = db_connection.cursor()
