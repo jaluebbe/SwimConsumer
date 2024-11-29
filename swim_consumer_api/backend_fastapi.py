@@ -9,6 +9,7 @@ SWIM_DB_FILE = "swim_flight_history.sqb"
 callsign_validator = re.compile(
     "^([A-Z]{3})[0-9](([0-9]{0,3})|([0-9]{0,2})([A-Z])|([0-9]?)([A-Z]{2}))$"
 )
+operator_icao_validator = re.compile("^[A-Z]{3}$")
 
 
 def parse_datetime(value: str):
@@ -128,3 +129,33 @@ def get_swim_flight_history_by_callsign(
         _row_dict["ArrivalActual"] = bool(_row_dict["ArrivalActual"])
         result_list.append(_row_dict)
     return result_list
+
+
+@app.get("/api/swim_routes_by_airline")
+def get_swim_routes_by_airline(
+    operator: str = Query(
+        ..., description="Operator ICAO representing an airline"
+    ),
+    days_back: int = Query(
+        14,
+        description=(
+            "Number of days to go back from the current date "
+            "(defaults to 14 days)"
+        ),
+    ),
+):
+    if not operator_icao_validator.match(operator):
+        raise HTTPException(
+            status_code=400, detail="Invalid operator ICAO format"
+        )
+    begin_epoch = int(arrow.utcnow().shift(days=-days_back).timestamp())
+
+    sql_query = f"""
+        SELECT DISTINCT OriginIcao || '-' || DestinationIcao
+        FROM SWIMFlightHistory
+        WHERE SUBSTR(Callsign, 1, 3) = ? AND Departure > ?;"""
+    with sqlite3.connect(SWIM_DB_FILE) as db_connection:
+        _cursor = db_connection.cursor()
+        _cursor.execute(sql_query, (operator, begin_epoch))
+        result = _cursor.fetchall()
+    return [_row[0] for _row in result]
