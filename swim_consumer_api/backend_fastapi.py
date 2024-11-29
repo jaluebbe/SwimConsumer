@@ -1,14 +1,40 @@
-import re
-from fastapi import FastAPI, Query, HTTPException, Depends
+from pydantic import BaseModel, Field, constr
+from fastapi import FastAPI, HTTPException, Depends
 import arrow
 import sqlite3
 
 app = FastAPI(openapi_prefix="", title="SwimConsumer API", description="")
 
 SWIM_DB_FILE = "swim_flight_history.sqb"
-callsign_validator = re.compile(
-    "^([A-Z]{3})[0-9](([0-9]{0,3})|([0-9]{0,2})([A-Z])|([0-9]?)([A-Z]{2}))$"
-)
+
+
+class CallsignModel(BaseModel):
+    callsign: constr(
+        pattern=(
+            r"^([A-Z]{3})[0-9](([0-9]{0,3})|([0-9]{0,2})([A-Z])|"
+            r"([0-9]?)([A-Z]{2}))$"
+        )
+    ) = Field(..., description="Callsign representing an airline flight")
+    days_back: int = Field(
+        14,
+        description=(
+            "Number of days to go back from the current date "
+            "(defaults to 14 days)"
+        ),
+    )
+
+
+class OperatorModel(BaseModel):
+    operator: constr(pattern=r"^[A-Z]{3}$") = Field(
+        ..., description="Operator ICAO representing an airline"
+    )
+    days_back: int = Field(
+        14,
+        description=(
+            "Number of days to go back from the current date "
+            "(defaults to 14 days)"
+        ),
+    )
 
 
 def parse_datetime(value: str):
@@ -91,23 +117,8 @@ def get_swim_flight_history(
 
 
 @app.get("/api/swim_flight_history_by_callsign")
-def get_swim_flight_history_by_callsign(
-    callsign: str = Query(
-        ..., description="Callsign representing an airline flight"
-    ),
-    days_back: int = Query(
-        14,
-        description=(
-            "Number of days to go back from the current date "
-            "(defaults to 14 days)"
-        ),
-    ),
-):
-    if not callsign_validator.match(callsign):
-        raise HTTPException(
-            status_code=400, detail="Unsupported callsign format"
-        )
-    begin_epoch = int(arrow.utcnow().shift(days=-days_back).timestamp())
+def get_swim_flight_history_by_callsign(params: CallsignModel = Depends()):
+    begin_epoch = int(arrow.utcnow().shift(days=-params.days_back).timestamp())
 
     sql_query = f"""
         SELECT Callsign, OriginIcao AS Origin, IGTD, GateDeparture,
@@ -118,7 +129,7 @@ def get_swim_flight_history_by_callsign(
     with sqlite3.connect(SWIM_DB_FILE) as db_connection:
         db_connection.row_factory = sqlite3.Row
         _cursor = db_connection.cursor()
-        _cursor.execute(sql_query, (callsign, begin_epoch))
+        _cursor.execute(sql_query, (params.callsign, begin_epoch))
         result = _cursor.fetchall()
 
     result_list = []
@@ -128,3 +139,18 @@ def get_swim_flight_history_by_callsign(
         _row_dict["ArrivalActual"] = bool(_row_dict["ArrivalActual"])
         result_list.append(_row_dict)
     return result_list
+
+
+@app.get("/api/swim_routes_by_airline")
+def get_swim_routes_by_airline(params: OperatorModel = Depends()):
+    begin_epoch = int(arrow.utcnow().shift(days=-params.days_back).timestamp())
+
+    sql_query = f"""
+        SELECT DISTINCT OriginIcao || '-' || DestinationIcao
+        FROM SWIMFlightHistory
+        WHERE SUBSTR(Callsign, 1, 3) = ? AND Departure > ?;"""
+    with sqlite3.connect(SWIM_DB_FILE) as db_connection:
+        _cursor = db_connection.cursor()
+        _cursor.execute(sql_query, (params.operator, begin_epoch))
+        result = _cursor.fetchall()
+    return [_row[0] for _row in result]
