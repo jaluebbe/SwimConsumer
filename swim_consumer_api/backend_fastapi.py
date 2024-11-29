@@ -8,6 +8,22 @@ app = FastAPI(openapi_prefix="", title="SwimConsumer API", description="")
 SWIM_DB_FILE = "swim_flight_history.sqb"
 
 
+class FlightHistoryModel(BaseModel):
+    begin: str = Field(
+        ..., description="Start time in epoch or datetime format"
+    )
+    end: str | None = Field(
+        None,
+        description=(
+            "End time in epoch or datetime format "
+            "(defaults to 1 hour after begin)"
+        ),
+    )
+    show_datetime: bool = Field(
+        False, description="Whether to show datetime in the results"
+    )
+
+
 class CallsignModel(BaseModel):
     callsign: constr(
         pattern=(
@@ -62,28 +78,16 @@ def get_swim_consumer_status():
 
 
 @app.get("/api/swim_flight_history")
-def get_swim_flight_history(
-    begin: str = Query(
-        ..., description="Start time in epoch or datetime format"
-    ),
-    end: str = Query(
-        None,
-        description=(
-            "End time in epoch or datetime format "
-            "(defaults to 1 hour after begin)"
-        ),
-    ),
-    show_datetime: bool = Query(default=False),
-):
-    begin_epoch = parse_datetime(begin)
-    if end is None:
+def get_swim_flight_history(params: FlightHistoryModel = Depends()):
+    begin_epoch = parse_datetime(params.begin)
+    if params.end is None:
         end_epoch = begin_epoch + 3600
     else:
-        end_epoch = parse_datetime(end)
+        end_epoch = parse_datetime(params.end)
     if begin_epoch > end_epoch or end_epoch - begin_epoch > 3600 * 24 * 7:
         raise HTTPException(status_code=404, detail="invalid time range")
 
-    if show_datetime:
+    if params.show_datetime:
         sql_query = f"""
             SELECT Callsign, OriginIcao AS Origin, 
             datetime(IGTD, 'unixepoch') AS IGTD,
