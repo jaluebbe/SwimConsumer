@@ -12,7 +12,7 @@ with sqlite3.connect(SWIM_FLIGHT_HISTORY_DB_FILE) as db_connection:
     )
     if _cursor.fetchone()[0] == 0:
         with open(
-            PWD / "sql_files/SWIMFlightHistory_sqlite.sql", encoding="utf-8"
+            PWD / "sql_files/SWIMFlightHistory.sql", encoding="utf-8"
         ) as f:
             db_connection.executescript(f.read())
     db_connection.commit()
