@@ -15,3 +15,4 @@ CREATE TABLE IF NOT EXISTS SWIMFlightHistory (
 CREATE INDEX idx_callsign ON SWIMFlightHistory (Callsign);
 CREATE INDEX idx_departure ON SWIMFlightHistory (Departure);
 CREATE INDEX idx_arrival ON SWIMFlightHistory (Arrival);
+CREATE INDEX idx_callsign_departure ON SWIMFlightHistory (Callsign, Departure);
