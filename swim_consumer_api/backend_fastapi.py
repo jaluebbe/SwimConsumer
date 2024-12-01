@@ -6,6 +6,7 @@ import sqlite3
 app = FastAPI(openapi_prefix="", title="SwimConsumer API", description="")
 
 SWIM_DB_FILE = "swim_flight_history.sqb"
+SWIM_DB_URI = f"file:{SWIM_DB_FILE}?mode=ro"
 
 
 class FlightHistoryModel(BaseModel):
@@ -65,7 +66,7 @@ def get_swim_consumer_status():
     sql_query = """
         SELECT strftime('%s', 'now') - MAX(Arrival) AS LastUpdate
         FROM SWIMFlightHistory;"""
-    with sqlite3.connect(SWIM_DB_FILE) as db_connection:
+    with sqlite3.connect(SWIM_DB_URI, uri=True) as db_connection:
         db_connection.row_factory = sqlite3.Row
         _cursor = db_connection.cursor()
         _cursor.execute(sql_query)
@@ -105,7 +106,7 @@ def get_swim_flight_history(params: FlightHistoryModel = Depends()):
             Arrival, ArrivalActual, GateArrival
             FROM SWIMFlightHistory
             WHERE Departure BETWEEN {begin_epoch} AND {end_epoch};"""
-    with sqlite3.connect(SWIM_DB_FILE) as db_connection:
+    with sqlite3.connect(SWIM_DB_URI, uri=True) as db_connection:
         db_connection.row_factory = sqlite3.Row
         _cursor = db_connection.cursor()
         _cursor.execute(sql_query)
@@ -130,7 +131,7 @@ def get_swim_flight_history_by_callsign(params: CallsignModel = Depends()):
         Arrival, ArrivalActual, GateArrival
         FROM SWIMFlightHistory
         WHERE Callsign = ? AND Departure > ?;"""
-    with sqlite3.connect(SWIM_DB_FILE) as db_connection:
+    with sqlite3.connect(SWIM_DB_URI, uri=True) as db_connection:
         db_connection.row_factory = sqlite3.Row
         _cursor = db_connection.cursor()
         _cursor.execute(sql_query, (params.callsign, begin_epoch))
@@ -153,7 +154,7 @@ def get_swim_routes_by_airline(params: OperatorModel = Depends()):
         SELECT DISTINCT OriginIcao || '-' || DestinationIcao
         FROM SWIMFlightHistory
         WHERE SUBSTR(Callsign, 1, 3) = ? AND Departure > ?;"""
-    with sqlite3.connect(SWIM_DB_FILE) as db_connection:
+    with sqlite3.connect(SWIM_DB_URI, uri=True) as db_connection:
         _cursor = db_connection.cursor()
         _cursor.execute(sql_query, (params.operator, begin_epoch))
         result = _cursor.fetchall()
