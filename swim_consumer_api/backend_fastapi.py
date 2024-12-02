@@ -168,4 +168,4 @@ def get_swim_callsigns(params: DaysBackModel = Depends()):
             (begin_epoch,),
         )
         result = _cursor.fetchall()
-    return list({_row[0] for _row in result})
+    return sorted({_row[0] for _row in result})
