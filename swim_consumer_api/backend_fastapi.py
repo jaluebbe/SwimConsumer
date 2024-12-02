@@ -25,32 +25,28 @@ class FlightHistoryModel(BaseModel):
     )
 
 
-class CallsignModel(BaseModel):
+class DaysBackModel(BaseModel):
+    days_back: int = Field(
+        14,
+        description=(
+            "Number of days to go back from the current date "
+            "(defaults to 14 days)"
+        ),
+    )
+
+
+class CallsignModel(DaysBackModel):
     callsign: constr(
         pattern=(
             r"^([A-Z]{3})[0-9](([0-9]{0,3})|([0-9]{0,2})([A-Z])|"
             r"([0-9]?)([A-Z]{2}))$"
         )
     ) = Field(..., description="Callsign representing an airline flight")
-    days_back: int = Field(
-        14,
-        description=(
-            "Number of days to go back from the current date "
-            "(defaults to 14 days)"
-        ),
-    )
 
 
-class OperatorModel(BaseModel):
+class OperatorModel(DaysBackModel):
     operator: constr(pattern=r"^[A-Z]{3}$") = Field(
         ..., description="Operator ICAO representing an airline"
-    )
-    days_back: int = Field(
-        14,
-        description=(
-            "Number of days to go back from the current date "
-            "(defaults to 14 days)"
-        ),
     )
 
 
@@ -159,3 +155,17 @@ def get_swim_routes_by_airline(params: OperatorModel = Depends()):
         _cursor.execute(sql_query, (params.operator, begin_epoch))
         result = _cursor.fetchall()
     return [_row[0] for _row in result]
+
+
+@app.get("/api/swim_callsigns")
+def get_swim_callsigns(params: DaysBackModel = Depends()):
+    begin_epoch = int(arrow.utcnow().shift(days=-params.days_back).timestamp())
+
+    with sqlite3.connect(SWIM_DB_URI, uri=True) as db_connection:
+        _cursor = db_connection.cursor()
+        _cursor.execute(
+            "SELECT Callsign FROM SWIMFlightHistory WHERE Departure > ?;",
+            (begin_epoch,),
+        )
+        result = _cursor.fetchall()
+    return list({_row[0] for _row in result})
