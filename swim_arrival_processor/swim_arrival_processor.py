@@ -13,7 +13,6 @@ flight_db = FlightDatabase()
 def process_message(message):
     # Some operator ICAOs do not represent scheduled airline flights:
     if message["airline"] in (
-        "XXX",
         "DCM",
         "FWR",
         "FFL",
@@ -21,6 +20,20 @@ def process_message(message):
         "EJA",
         "NJE",
         "NEJ",
+        "CXK",
+        "EJM",
+        "JAS",
+        "HRT",
+        "JTZ",
+        "LJY",
+        "LXJ",
+        "MVP",
+        "PBR",
+        "SIS",
+        "TFF",
+        "TWY",
+        "XFL",
+        "XSR",
     ):
         return
 
