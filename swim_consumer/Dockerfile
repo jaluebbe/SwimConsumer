@@ -1,13 +1,13 @@
-FROM openjdk:alpine as builder
+FROM adoptopenjdk:11-jdk-hotspot as builder
 
 WORKDIR /build/
 
 COPY RedisOutput.java .
 
-RUN apk update \
-    && apk upgrade \
-    && apk add git curl maven \
-    && rm -f /var/cache/apk/* \
+RUN apt-get update \
+    && apt-get upgrade -y \
+    && apt-get install -y git curl maven \
+    && rm -rf /var/lib/apt/lists/* \
     && curl -LOs https://files.swim.faa.gov/jumpstart/jumpstart-latest.tar.gz \
     && mkdir jumpstart-latest \
     && tar xfvz jumpstart-latest.tar.gz -C jumpstart-latest/ \
@@ -23,10 +23,10 @@ RUN apk update \
     && rm -fr jumpstart-latest
 
 # Build final image
-FROM openjdk:alpine as consumer
+FROM adoptopenjdk:11-jre-hotspot as consumer
 
 WORKDIR /app
 
-COPY --from=builder  /build/jumpstart-jar-with-dependencies.jar .
+COPY --from=builder /build/jumpstart-jar-with-dependencies.jar .
 
-CMD ["java", "-Dconfig.file=swim_consumer.conf", "-jar", "jumpstart-jar-with-dependencies.jar"]    
+CMD ["java", "-Dconfig.file=swim_consumer.conf", "-jar", "jumpstart-jar-with-dependencies.jar"]
