@@ -40,6 +40,8 @@ def process_message(message):
     # Split callsign into operator and suffix and remove leading zeros.
     operator_icao = message["callsign"][:3]
     suffix = message["callsign"][3:].lstrip("0")
+    if len(suffix) == 0 or not suffix[0].isnumeric():
+        return
     callsign = "{}{}".format(operator_icao, suffix)
     if not message["etd"]["etdType"] == "ACTUAL":
         return

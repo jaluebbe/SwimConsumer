@@ -17,6 +17,7 @@ with open("airport_iata_to_icao.json") as f:
 with open("local_code_to_icao.json") as f:
     local_code_to_icao = json.load(f)
 icao_pattern = re.compile("^[A-Z]{4}$")
+callsign_pattern = re.compile(r"^[A-Z]{3}[0-9][A-Z0-9]{0,4}$")
 
 
 def process_fdps_message(flights, show_raw_data=False):
@@ -28,6 +29,8 @@ def process_fdps_message(flights, show_raw_data=False):
     for _flight in flights:
         flight = _flight["flight"]
         callsign = flight["flightIdentification"]["aircraftIdentification"]
+        if not callsign_pattern.match(callsign):
+            continue
         if callsign in callsign_filter:
             logging.debug(f"filtering '{callsign}'.")
             continue
@@ -124,6 +127,8 @@ def process_tfms_message(flights, show_raw_data=False):
         flights = [flights]
     for flight in flights:
         callsign = flight["acid"]
+        if not callsign_pattern.match(callsign):
+            continue
         if callsign in callsign_filter:
             logging.debug(f"filtering '{callsign}'.")
             continue
